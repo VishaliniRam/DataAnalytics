@@ -1,0 +1,127 @@
+import pandas as pd
+import os
+
+files = [file for file in os.listdir("/Data location/Sales_Data")]
+for i in files:
+    print(i)
+
+df=pd.read_csv("/Data location/Sales_Data/Sales_April_2019.csv")
+
+all_data=pd.DataFrame()
+for i in files:
+    df=pd.read_csv("/Data location/Sales_Data/"+i)
+    all_data=pd.concat([all_data, df])
+#all_data.to_csv("all_data.csv", index=False)
+
+all_data=pd.read_csv("/Data location/Sales_Data/all_data.csv")
+all_data.head(100)
+
+#Remove null (NaN) columns
+
+all_data['Month']=all_data['Order Date'].str[0:2]
+all_data.head()
+
+nan_df=all_data[all_data.isna().any(axis=1)]
+all_data=all_data.dropna(how='all')
+
+#Seperate month from full date
+
+all_data=all_data[all_data['Order Date'].str[0:2]!='Or']
+all_data['Month']=all_data['Order Date'].str[0:2]
+all_data['Month']=all_data['Month'].astype('int32')
+all_data.head()
+
+#Task 1: Best sales month and how much earned in that month
+
+all_data['Quantity Ordered']=pd.to_numeric(all_data['Quantity Ordered'])
+all_data['Price Each']=pd.to_numeric(all_data['Price Each'])
+all_data['Sales']=all_data['Quantity Ordered']*all_data['Price Each']
+
+results=all_data.groupby('Month').sum()
+
+import matplotlib.pyplot as plt
+months=range(1,13)
+plt.bar(months,results['Sales'])
+plt.xticks(months)
+plt.ylabel('Sales in USD')
+plt.xlabel('Months')
+plt.show()
+
+#Task 2: Which city had the best sales
+
+#Extract City name from the data table
+
+all_data['City']=all_data['Purchase Address'].apply(lambda x: x.split(',')[1]+ ' '+ x.split(',')[2].split(' ')[1])
+
+results=all_data.groupby('City').sum()
+
+city=[cities for cities, df in all_data.groupby('City')]
+plt.bar(city,results['Sales'])
+plt.xticks(city, rotation='vertical')
+plt.ylabel('Sales in USD')
+plt.xlabel('City')
+plt.show()
+
+#Task 3: What time to adverstise the product to make customers buy them
+
+all_data['Order Date']=pd.to_datetime(all_data['Order Date'])
+
+all_data['Hour']=all_data['Order Date'].dt.hour
+all_data['Minute']=all_data['Order Date'].dt.minute
+all_data.head()
+
+hour=[hours for hours, df in all_data.groupby('Hour')]
+plt.plot(hour, all_data.groupby(['Hour']).count())
+plt.xticks(hour)
+plt.ylabel('Number of Orders')
+plt.xlabel('Hour')
+plt.grid()
+plt.show()
+
+#Task 4: What Products are most often sold together
+
+df = all_data[all_data['Order ID' ].duplicated(keep=False) ]
+df['Grouped' ] = df.groupby('Order ID')[ 'Product' ].transform(lambda x:', '.join(x))
+df = df[['Order ID', 'Grouped' ]].drop_duplicates()
+df.head()
+
+from itertools import combinations
+from collections import Counter
+count=Counter()
+
+for i in df['Grouped']:
+    new_list=i.split(',')
+    count.update(Counter(combinations(new_list,2)))
+    
+count.most_common(10)
+
+for key,value in count.most_common(10):
+    print(key, value)
+
+
+
+#Task 5: What product sold the most and why
+
+
+product_group=all_data.groupby('Product')
+total_quantity=product_group.sum()['Quantity Ordered']
+
+product=[ pdt for pdt, df in product_group]
+plt.bar(product, total_quantity)
+plt.xticks(product, rotation='vertical')
+plt.ylabel('Quantity Ordered')
+plt.xlabel('Product')
+plt.show()
+
+prices=all_data.groupby('Product').mean()['Price Each']
+fig, ax1 = plt.subplots()
+
+ax2 = ax1.twinx()
+ax1.bar(product, total_quantity, color='g')
+ax2.plot(product, prices, 'b-')
+
+ax1.set_xlabel('Product')
+ax1.set_ylabel('Total quantity', color='g')
+ax2.set_ylabel('Price', color='b')
+ax1.set_xticklabels(product, rotation='vertical', size=8)
+plt.show()
